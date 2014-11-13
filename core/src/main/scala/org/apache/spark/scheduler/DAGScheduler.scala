@@ -17,10 +17,13 @@
 
 package org.apache.spark.scheduler
 
+
 import java.io.NotSerializableException
+import java.util
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, Map, Stack}
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -39,7 +42,7 @@ import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.partial.{ApproximateActionListener, ApproximateEvaluator, PartialResult}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage._
-import org.apache.spark.util.{CallSite, SystemClock, Clock, Utils}
+import org.apache.spark.util.{CallSite, SystemClock, Clock, Utils, RDDWalker}
 import org.apache.spark.storage.BlockManagerMessages.BlockManagerHeartbeat
 
 /**
@@ -784,6 +787,46 @@ class DAGScheduler(
     }
   }
 
+  /**
+   * Helper function to naively check whether an RDD is serializable. This function does not 
+   * evaluate the RDD's dependencies directly since it is executed by a class that
+   * traverses the RDD dependency graph.
+   * @param rdd - RDD to serialize
+   * @return - An output string qualifying success or failure.
+   */
+  private def isSerializable(rdd: RDD[_]): String = {
+    try {
+      closureSerializer.serialize(rdd: AnyRef)
+      "Serialized: " + rdd.toString
+    }
+    catch {
+      case e: NotSerializableException =>
+        "Failed to serialize: " + rdd.toString
+
+      case NonFatal(e) =>
+        "Failed to serialize: " + rdd.toString
+    }
+  }
+
+  /**
+   * Use the RDDWalker class to execute a graph traversal of an RDD and its dependencies to help 
+   * identify which RDDs are not serializable. In short, attempt to serialize the RDD and catch 
+   * any Exceptions thrown (this is the same mechanism used within submitMissingTasks() to deal with
+   * serialization failures).
+   * @param stage - The current stage of execution 
+   */
+  private def printSerializationTrace(stage : Stage): Unit = {
+    //Next, if there are dependencies, attempt to serialize those 
+    val results: util.ArrayList[String] = RDDWalker.walk(stage.rdd, isSerializable)
+    logDebug("Serialization trace:")
+    
+    val it = results.iterator()
+    while(it.hasNext){
+      logDebug(it.next())
+    }
+  }
+  
+
   /** Called when stage's parents are available and we can now do its task. */
   private def submitMissingTasks(stage: Stage, jobId: Int) {
     logDebug("submitMissingTasks(" + stage + ")")
@@ -823,8 +866,8 @@ class DAGScheduler(
     // where the JobConf/Configuration object is not thread-safe.
     var taskBinary: Broadcast[Array[Byte]] = null
     try {
-      // For ShuffleMapTask, serialize and broadcast (rdd, shuffleDep).
-      // For ResultTask, serialize and broadcast (rdd, func).
+      // For ShuffleMapTask, serialize and broadcast (rdd, shuffleDep). 
+      // For ResultTask, serialize and broadcast (rdd, func). 
       val taskBinaryBytes: Array[Byte] =
         if (stage.isShuffleMap) {
           closureSerializer.serialize((stage.rdd, stage.shuffleDep.get) : AnyRef).array()
@@ -832,17 +875,19 @@ class DAGScheduler(
           closureSerializer.serialize((stage.rdd, stage.resultOfJob.get.func) : AnyRef).array()
         }
 
-      //Before serialization print out the RDD and its referencesm
+     //Before serialization print out the RDD and its references. 
       logDebug(stage.rdd.toDebugString)
 
       taskBinary = sc.broadcast(taskBinaryBytes)
     } catch {
-      // In the case of a failure during serialization, abort the stage.
+      // In the case of a failure during serialization, abort the stage. 
       case e: NotSerializableException =>
+        printSerializationTrace(stage)
         abortStage(stage, "Task not serializable: " + e.toString)
         runningStages -= stage
         return
       case NonFatal(e) =>
+        printSerializationTrace(stage)
         abortStage(stage, s"Task serialization failed: $e\n${e.getStackTraceString}")
         runningStages -= stage
         return

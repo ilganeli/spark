@@ -464,15 +464,16 @@ private[spark] class TaskSetManager(
     None
   }
 
-   /**
-   * Provide a string representation of the task and its dependencies (in terms of added files and jars that must
-   * be shipped with the task) for debugging purposes.
+  /**
+   * Provide a string representation of the task and its dependencies (in terms of added files
+   * and jars that must be shipped with the task) for debugging purposes.
    * @param task - The task to serialize
    * @param addedFiles - The file dependencies
    * @param addedJars - The JAR dependencies
    * @return String - The task and dependencies as a string
    */
-  private def taskDebugString(task : Task[_], addedFiles : HashMap[String,Long], addedJars : HashMap[String,Long]): String ={
+  private def taskDebugString(task : Task[_], addedFiles : HashMap[String,Long],
+                              addedJars : HashMap[String,Long]): String ={
      val taskStr = "[" + task.toString + "] \n"
      val strPrefix = s"--  "
      val nl = s"\n"
