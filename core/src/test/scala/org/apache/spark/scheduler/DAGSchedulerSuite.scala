@@ -728,6 +728,16 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     assert(scheduler.sc.dagScheduler === null)
   }
 
+  test("Test serialization debug output of trivial job w/ dependency") {
+    val baseRdd = new MyRDD(sc, 1, Nil)
+    val finalRdd = new MyRDD(sc, 1, List(new OneToOneDependency(baseRdd)))
+    submit(finalRdd, Array(0))
+    complete(taskSets(0), Seq((Success, 42)))
+    assert(results === Map(0 -> 42))
+    assertDataStructuresEmpty
+  }
+
+  
   /**
    * Assert that the supplied TaskSet has exactly the given hosts as its preferred locations.
    * Note that this checks only the host and not the executor ID.

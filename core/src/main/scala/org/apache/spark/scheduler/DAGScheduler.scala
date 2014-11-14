@@ -816,7 +816,7 @@ class DAGScheduler(
    * @param stage - The current stage of execution 
    */
   private def printSerializationTrace(stage : Stage): Unit = {
-    //Next, if there are dependencies, attempt to serialize those 
+    // Next, if there are dependencies, attempt to serialize those 
     val results: util.ArrayList[String] = RDDWalker.walk(stage.rdd, isSerializable)
     logDebug("Serialization trace:")
     
@@ -875,7 +875,7 @@ class DAGScheduler(
           closureSerializer.serialize((stage.rdd, stage.resultOfJob.get.func) : AnyRef).array()
         }
 
-     //Before serialization print out the RDD and its references. 
+      // Before serialization print out the RDD and its references. 
       logDebug(stage.rdd.toDebugString)
 
       taskBinary = sc.broadcast(taskBinaryBytes)
