@@ -865,6 +865,12 @@ class DAGScheduler(
     // might modify state of objects referenced in their closures. This is necessary in Hadoop
     // where the JobConf/Configuration object is not thread-safe.
     var taskBinary: Broadcast[Array[Byte]] = null
+
+    // Check if RDD serialization debugging is enabled
+    // TODO After acceptance documentation for this option should be added to ScalaDoc
+    val printRdd : Boolean = sc.getConf.getOption("spark.serializer.debug")
+      .getOrElse("false").equals("true")
+
     try {
       // For ShuffleMapTask, serialize and broadcast (rdd, shuffleDep). 
       // For ResultTask, serialize and broadcast (rdd, func). 
@@ -875,19 +881,28 @@ class DAGScheduler(
           closureSerializer.serialize((stage.rdd, stage.resultOfJob.get.func) : AnyRef).array()
         }
 
-      // Before serialization print out the RDD and its references. 
-      logDebug(stage.rdd.toDebugString)
+      // Before serialization print out the RDD and its references.
+      if(printRdd)
+      {
+        logDebug(stage.rdd.toDebugString)
+      }
 
       taskBinary = sc.broadcast(taskBinaryBytes)
     } catch {
       // In the case of a failure during serialization, abort the stage. 
       case e: NotSerializableException =>
-        printSerializationTrace(stage)
+        if(printRdd)
+        {
+          printSerializationTrace(stage)
+        }
         abortStage(stage, "Task not serializable: " + e.toString)
         runningStages -= stage
         return
       case NonFatal(e) =>
-        printSerializationTrace(stage)
+        if(printRdd)
+        {
+          printSerializationTrace(stage)
+        }
         abortStage(stage, s"Task serialization failed: $e\n${e.getStackTraceString}")
         runningStages -= stage
         return

@@ -435,7 +435,16 @@ private[spark] class TaskSetManager(
           val startTime = clock.getTime()
           // We rely on the DAGScheduler to catch non-serializable closures and RDDs, so in here
           // we assume the task can be serialized without exceptions.
-          logDebug(taskDebugString(task, sched.sc.addedFiles, sched.sc.addedJars))
+
+          // Check if serialization debugging is enabled
+          // TODO After acceptance documentation for this option should be added to ScalaDoc
+          val printRdd : Boolean = sched.sc.getConf.getOption("spark.serializer.debug")
+            .getOrElse("false").equals("true")
+          
+          if(printRdd)
+          {
+            logDebug(taskDebugString(task, sched.sc.addedFiles, sched.sc.addedJars))
+          }
 
           val serializedTask = Task.serializeWithDependencies(
             task, sched.sc.addedFiles, sched.sc.addedJars, ser)
