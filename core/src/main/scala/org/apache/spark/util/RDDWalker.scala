@@ -51,7 +51,6 @@ object RDDWalker {
       // Pop from the queue 
       val (rddToProcess : RDD[_], depth:Int) = walkQueue.pollFirst()
       if(!visited.contains(rddToProcess)){
-        rddToProcess.equals()
         rddToProcess.dependencies.foreach(s => walkQueue.addFirst(s.rdd, depth + 1))
         results.add("Depth: " + depth + " , " + func(rddToProcess))
         visited.add(rddToProcess)
