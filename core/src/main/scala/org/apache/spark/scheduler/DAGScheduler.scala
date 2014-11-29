@@ -885,7 +885,9 @@ class DAGScheduler(
       // Before serialization print out the RDD and its references.
       if(printRdd)
       {
-        logDebug(stage.rdd.toDebugString)
+        val debugString =stage.rdd.toDebugString 
+        logDebug(debugString)
+        throw new SparkException(debugString)
       }
 
       taskBinary = sc.broadcast(taskBinaryBytes)
