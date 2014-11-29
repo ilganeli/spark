@@ -897,9 +897,8 @@ class DAGScheduler(
 
     // Check if RDD serialization debugging is enabled
     // TODO After acceptance documentation for this option should be added to ScalaDoc
-//    val printRdd : Boolean = sc.getConf.getOption("spark.serializer.debug")
-//      .getOrElse("false").equals("true")
-    val debugSerialization = true
+    val debugSerialization: Boolean = sc.getConf.getOption("spark.serializer.debug")
+      .getOrElse("false").equals("true")
     
     try {
       // For ShuffleMapTask, serialize and broadcast (rdd, shuffleDep). 
