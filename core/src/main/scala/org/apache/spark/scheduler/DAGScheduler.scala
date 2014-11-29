@@ -835,7 +835,7 @@ class DAGScheduler(
     // Next, if there are dependencies, attempt to serialize those 
     val results: util.ArrayList[String] = RDDWalker.walk(rdd, isSerializable)
     
-    var trace = "Serialization trace: "
+    var trace = "Serialization trace:\n"
     
     val it = results.iterator()
     while(it.hasNext){
@@ -899,12 +899,12 @@ class DAGScheduler(
     // TODO After acceptance documentation for this option should be added to ScalaDoc
 //    val printRdd : Boolean = sc.getConf.getOption("spark.serializer.debug")
 //      .getOrElse("false").equals("true")
-    val printRdd = true
+    val debugSerialization = true
     
     try {
       // For ShuffleMapTask, serialize and broadcast (rdd, shuffleDep). 
       // Before serialization print out the RDD and its references.
-      if(printRdd)
+      if(debugSerialization)
       {
         logDebug(getDependencyTrace(stage.rdd))
         logDebug(getSerializationTrace(stage.rdd))
@@ -957,6 +957,11 @@ class DAGScheduler(
       // We've already serialized RDDs and closures in taskBinary, but here we check for all other
       // objects such as Partition.
       try {
+        if(debugSerialization)
+        {
+          logDebug(SerializationHelper.taskDebugString(tasks.head, sc.addedFiles, sc.addedJars))
+        }
+        
         closureSerializer.serialize(tasks.head)
       } catch {
         case e: NotSerializableException =>

@@ -29,7 +29,7 @@ import scala.math.min
 import org.apache.spark._
 import org.apache.spark.TaskState.TaskState
 import org.apache.spark.executor.TaskMetrics
-import org.apache.spark.util.{Clock, SystemClock}
+import org.apache.spark.util.{SerializationHelper, Clock, SystemClock}
 
 /**
  * Schedules the tasks within a single TaskSet in the TaskSchedulerImpl. This class keeps track of
@@ -443,7 +443,7 @@ private[spark] class TaskSetManager(
           
           if(printRdd)
           {
-            logDebug(taskDebugString(task, sched.sc.addedFiles, sched.sc.addedJars))
+            logDebug(SerializationHelper.taskDebugString(task, sched.sc.addedFiles, sched.sc.addedJars))
           }
 
           val serializedTask = Task.serializeWithDependencies(
@@ -471,28 +471,6 @@ private[spark] class TaskSetManager(
       }
     }
     None
-  }
-
-  /**
-   * Provide a string representation of the task and its dependencies (in terms of added files
-   * and jars that must be shipped with the task) for debugging purposes.
-   * @param task - The task to serialize
-   * @param addedFiles - The file dependencies
-   * @param addedJars - The JAR dependencies
-   * @return String - The task and dependencies as a string
-   */
-  private def taskDebugString(task : Task[_], addedFiles : HashMap[String,Long],
-                              addedJars : HashMap[String,Long]): String ={
-     val taskStr = "[" + task.toString + "] \n"
-     val strPrefix = s"--  "
-     val nl = s"\n"
-     val fileTitle = s"File dependencies:$nl"
-     val jarTitle = s"Jar dependencies:$nl"
-
-     val fileStr = addedFiles.keys.map(file => s"$strPrefix $file").reduce(_ + nl + _) + nl
-     val jarStr = addedJars.keys.map(jar => s"$strPrefix $jar").reduce(_ + nl + _) + nl
-
-     s"$taskStr $nl $fileTitle $fileStr $jarTitle $jarStr"
   }
 
   private def maybeFinishTaskSet() {

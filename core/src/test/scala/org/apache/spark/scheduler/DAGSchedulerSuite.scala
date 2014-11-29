@@ -278,13 +278,11 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     val splitRdds = trace.split("\n")
 
     var x = 0
-    for(x <- 0 until splitRdds.length){
+    for(x <- 1 until splitRdds.length){
       val splitS = splitRdds(x).split(":")
       val status = splitS(1).trim()
-      if(!status.equals(result(x)))
-        throw new Exception(">"+status+":"+result(x)+"<")
-
-      assert(status.equals(result(x)))
+      
+      assert(status.equals(result(x-1)))
 
     }
 
@@ -309,13 +307,11 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     
     var x = 0
     
-    for(x <- 0 until splitRdds.length){
+    for(x <- 1 until splitRdds.length){
       val splitS = splitRdds(x).split(":")
       val status = splitS(1).trim()
       
-      if(!status.equals(result(x)))
-        throw new Exception(">"+status+":"+result(x)+"<")
-      assert(status.equals(result(x)))
+      assert(status.equals(result(x-1)))
       
     }
     
@@ -338,12 +334,10 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     val splitRdds = trace.split("\n")
 
     var x = 0
-    for(x <- 0 until splitRdds.length){
+    for(x <- 1 until splitRdds.length){
       val splitS = splitRdds(x).split(":")
       val status = splitS(1).trim()
-      if(!status.equals(result(x)))
-        throw new Exception(">"+status+":"+result(x)+"<")
-      assert(status.equals(result(x)))
+      assert(status.equals(result(x-1)))
 
     }
 
@@ -362,12 +356,12 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     val splitRdds = trace.split("\n")
 
     var x = 0
-    for(x <- 0 until splitRdds.length){
+    for(x <- 1 until splitRdds.length){
       val splitS = splitRdds(x).split(":")
       val status = splitS(1).trim()
 
       if(!status.equals(SerializationHelper.Serialized))
-        throw new Exception(">"+status+":"+SerializationHelper.Serialized+"<")
+        throw new Exception(trace + "\n" +">"+status+":"+SerializationHelper.Serialized+"<")
 
       assert(status.equals(SerializationHelper.Serialized))
 
