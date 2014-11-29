@@ -280,7 +280,7 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     var x = 0
     for(x <- 0 until splitRdds.length){
       val splitS = splitRdds(x).split(":")
-      val status = splitS(2).trim()
+      val status = splitS(1).trim()
       if(!status.equals(result(x)))
         throw new Exception(">"+status+":"+result(x)+"<")
 
@@ -311,7 +311,7 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     
     for(x <- 0 until splitRdds.length){
       val splitS = splitRdds(x).split(":")
-      val status = splitS(2).trim()
+      val status = splitS(1).trim()
       
       if(!status.equals(result(x)))
         throw new Exception(">"+status+":"+result(x)+"<")
@@ -340,7 +340,7 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     var x = 0
     for(x <- 0 until splitRdds.length){
       val splitS = splitRdds(x).split(":")
-      val status = splitS(2).trim()
+      val status = splitS(1).trim()
       if(!status.equals(result(x)))
         throw new Exception(">"+status+":"+result(x)+"<")
       assert(status.equals(result(x)))
@@ -364,7 +364,7 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     var x = 0
     for(x <- 0 until splitRdds.length){
       val splitS = splitRdds(x).split(":")
-      val status = splitS(2).trim()
+      val status = splitS(1).trim()
 
       if(!status.equals(SerializationHelper.Serialized))
         throw new Exception(">"+status+":"+SerializationHelper.Serialized+"<")

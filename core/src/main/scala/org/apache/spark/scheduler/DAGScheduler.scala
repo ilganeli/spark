@@ -794,7 +794,6 @@ class DAGScheduler(
    * Helper function to naively check whether an RDD is serializable. This function does not 
    * evaluate the RDD's dependencies directly since it is executed by a class that
    * traverses the RDD dependency graph.
-   * @param closureSerializer - An instance of a serializer (single-threaded) that will be used
    * @param rdd - Rdd to attempt to serialize
    * @return - An output string qualifying success or failure.
    */
