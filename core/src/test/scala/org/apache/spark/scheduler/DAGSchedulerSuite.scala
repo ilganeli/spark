@@ -31,7 +31,7 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
 import org.apache.spark.storage.{BlockId, BlockManagerId, BlockManagerMaster}
-import org.apache.spark.util.CallSite
+import org.apache.spark.util.{SerializationHelper, CallSite}
 import org.apache.spark.executor.TaskMetrics
 
 class BuggyDAGEventProcessActor extends Actor {
@@ -233,6 +233,148 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
   private def cancel(jobId: Int) {
     runEvent(JobCancelled(jobId))
   }
+  
+  test("Test serialization debug output of trivial job w/ dependency") {
+    val baseRdd = new MyRDD(sc, 1, Nil)
+    val finalRdd = new MyRDD(sc, 1, List(new OneToOneDependency(baseRdd)))
+    submit(finalRdd, Array(0))
+    complete(taskSets(0), Seq((Success, 42)))
+    assert(results === Map(0 -> 42))
+    assertDataStructuresEmpty
+  }
+
+  test("Serialization trace for unserializable task") {
+    val unserializableRdd = new MyRDD(sc, 1, Nil) {
+      class UnserializableClass
+      val unserializable = new UnserializableClass
+    }
+    
+    val trace = scheduler.getSerializationTrace(unserializableRdd)
+
+    val splitS = trace.split(":")
+    val depth = splitS(1).trim()
+    val status = splitS(2).trim()
+    val rddName = splitS(3).trim()
+    
+    assert(rddName.equals("DAGSchedulerSuiteRDD 0"))
+    assert(status.equals("Failed to serialize"))
+  }
+
+  test("Serialization trace for unserializable task with serializable dependencies") {
+    // The trace should show which nested dependency is unserializable
+
+    val baseRdd = new MyRDD(sc, 1, Nil)
+    val midRdd = new MyRDD(sc, 1, List(new OneToOneDependency(baseRdd)))
+    val finalRdd = new MyRDD(sc, 1, List(new OneToOneDependency(midRdd))){
+      class UnserializableClass
+      val unserializable = new UnserializableClass
+    }
+    
+    val result = Array(SerializationHelper.Failed,
+      SerializationHelper.Serialized,
+      SerializationHelper.Serialized)
+    
+    val trace = scheduler.getSerializationTrace(finalRdd)
+    val splitRdds = trace.split("\n")
+
+    var x = 0
+    for(x <- 0 until splitRdds.length){
+      val splitS = splitRdds(x).split(":")
+      val status = splitS(2).trim()
+      if(!status.equals(result(x)))
+        throw new Exception(">"+status+":"+result(x)+"<")
+
+      assert(status.equals(result(x)))
+
+    }
+
+  }
+
+  test("Serialization trace for serializable task and nested unserializable dependency") {
+    // The trace should show which nested dependency is unserializable
+    
+    val baseRdd = new MyRDD(sc, 1, Nil){
+      class UnserializableClass
+      val unserializable = new UnserializableClass
+    }
+      
+    val midRdd = new MyRDD(sc, 1, List(new OneToOneDependency(baseRdd)))
+    val finalRdd = new MyRDD(sc, 1, List(new OneToOneDependency(midRdd)))
+    val result = Array(SerializationHelper.Serialized,
+      SerializationHelper.FailedDeps,
+      SerializationHelper.Failed)
+
+    val trace = scheduler.getSerializationTrace(finalRdd)
+    val splitRdds = trace.split("\n")
+    
+    var x = 0
+    
+    for(x <- 0 until splitRdds.length){
+      val splitS = splitRdds(x).split(":")
+      val status = splitS(2).trim()
+      
+      if(!status.equals(result(x)))
+        throw new Exception(">"+status+":"+result(x)+"<")
+      assert(status.equals(result(x)))
+      
+    }
+    
+  }
+  
+  test("Serialization trace for serializable task with sandwiched unserializable dependency") {
+    // The trace should show which nested dependency is unserializable
+
+    val baseRdd = new MyRDD(sc, 1, Nil)
+    val midRdd = new MyRDD(sc, 1, List(new OneToOneDependency(baseRdd))){
+      class UnserializableClass
+      val unserializable = new UnserializableClass
+    }
+    val finalRdd = new MyRDD(sc, 1, List(new OneToOneDependency(midRdd)))
+    val result = Array(SerializationHelper.FailedDeps,
+      SerializationHelper.Failed,
+      SerializationHelper.Serialized)
+
+    val trace = scheduler.getSerializationTrace(finalRdd)
+    val splitRdds = trace.split("\n")
+
+    var x = 0
+    for(x <- 0 until splitRdds.length){
+      val splitS = splitRdds(x).split(":")
+      val status = splitS(2).trim()
+      if(!status.equals(result(x)))
+        throw new Exception(">"+status+":"+result(x)+"<")
+      assert(status.equals(result(x)))
+
+    }
+
+  }
+
+  test("Serialization trace for serializable task and nested dependencies") {
+    // Because serialization also attempts to serialize dependencies, attempting to 
+    // serialize the serializable "finalRdd" should fail and the trace should show all its 
+    // dependencies as being unserializable.
+
+    val baseRdd = new MyRDD(sc, 1, Nil)
+    val midRdd = new MyRDD(sc, 1, List(new OneToOneDependency(baseRdd)))
+    val finalRdd = new MyRDD(sc, 1, List(new OneToOneDependency(midRdd)))
+
+    val trace = scheduler.getSerializationTrace(finalRdd)
+    val splitRdds = trace.split("\n")
+
+    var x = 0
+    for(x <- 0 until splitRdds.length){
+      val splitS = splitRdds(x).split(":")
+      val status = splitS(2).trim()
+
+      if(!status.equals(SerializationHelper.Serialized))
+        throw new Exception(">"+status+":"+SerializationHelper.Serialized+"<")
+
+      assert(status.equals(SerializationHelper.Serialized))
+
+    }
+
+  }
+
 
   test("[SPARK-3353] parent stage should have lower stage id") {
     sparkListener.stageByOrderOfExecution.clear()
@@ -527,15 +669,6 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     assert(sc.listenerBus.waitUntilEmpty(WAIT_TIMEOUT_MILLIS))
     assert(sparkListener.failedStages.toSet === Set(0))
 
-    assertDataStructuresEmpty
-  }
-  
-  test("Test serialization debug output of trivial job w/ dependency") {
-    val baseRdd = new MyRDD(sc, 1, Nil)
-    val finalRdd = new MyRDD(sc, 1, List(new OneToOneDependency(baseRdd)))
-    submit(finalRdd, Array(0))
-    complete(taskSets(0), Seq((Success, 42)))
-    assert(results === Map(0 -> 42))
     assertDataStructuresEmpty
   }
   
