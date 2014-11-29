@@ -27,12 +27,9 @@ import scala.math.{min, max}
 
 import org.apache.spark._
 import org.apache.spark.executor.TaskMetrics
-<<<<<<< HEAD
-import org.apache.spark.util.{SerializationHelper, Clock, SystemClock}
-=======
+
 import org.apache.spark.TaskState.TaskState
-import org.apache.spark.util.{Clock, SystemClock, Utils}
->>>>>>> upstream/master
+import org.apache.spark.util.{Clock, SystemClock, Utils, SerializationHelper}
 
 /**
  * Schedules the tasks within a single TaskSet in the TaskSchedulerImpl. This class keeps track of
