@@ -789,42 +789,32 @@ class DAGScheduler(
     }
   }
 
-
   /**
-   * Helper function to naively check whether an RDD is serializable. This function does not 
-   * evaluate the RDD's dependencies directly since it is executed by a class that
-   * traverses the RDD dependency graph.
+   * Helper function to check whether an RDD is serializable. 
+   * 
+   * Note: This function is defined seperately from the SerializationHelper.isSerializable()
+   * since DAGScheduler.isSerialiazble() is passed as a parameter to the RDDWalker class's graph
+   * traversal, which would otherwise require knowledge of the closureSerializer 
+   * (which was undesirable).
+   * 
    * @param rdd - Rdd to attempt to serialize
    * @return - An output string qualifying success or failure.
    */
   private def isSerializable(rdd: RDD[_]): String = {
-    // If any dependency of an RDD is unserializable, the entire RDD will be unserializable
-    // Therefore, split the evaluation into two stages, in the first stage attempt to serialize 
-    // the rdd. If it fails, attempt to serialize its dependencies and see if those also fail.
-    // Note: This approach will show if any of the dependencies are unserializable and will not 
-    // incorrectly identify the parent RDD as being serializable.
-
-    try {
-      closureSerializer.serialize(rdd: AnyRef)
-      SerializationHelper.Serialized + ": " + rdd.toString
-    }
-    catch {
-      case e: NotSerializableException =>
-        SerializationHelper.handleFailure(closureSerializer, rdd)
-
-      case NonFatal(e) =>
-        SerializationHelper.handleFailure(closureSerializer, rdd)
-    }
+    SerializationHelper.isSerializable(closureSerializer,rdd)
   }
 
   /**
    * Use the RDDWalker class to execute a graph traversal of an RDD and its dependencies to help 
    * identify which RDDs are not serializable. In short, attempt to serialize the RDD and catch 
    * any Exceptions thrown (this is the same mechanism used within submitMissingTasks() to deal with
-   * serialization failures).
+   * serialization failures). 
    * 
    * Note: This is defined here since it uses the isSerializale function which in turn uses 
-   * the closure serializer which is defined as a local variable in the DAGScheduler class. 
+   * the closure serializer. Although the better place for the serializer would be in the 
+   * SerializationHelper, the Helper is not guaranteed to run in a single thread unlike the 
+   * DAGScheduler.  
+    
    * 
    * @param rdd - The rdd for which to print the serialization trace to identify unserializable 
    *              components
@@ -848,7 +838,7 @@ class DAGScheduler(
 
   /**
    * Use the RDD toDebugString function to print a formatted dependency trace for an RDD
-   * @param rdd
+   * @param rdd - The RDD for which to print the dependency graph
    * @return
    */
   def getDependencyTrace(rdd: RDD[_]): String ={
@@ -902,6 +892,7 @@ class DAGScheduler(
     
     try {
       // For ShuffleMapTask, serialize and broadcast (rdd, shuffleDep). 
+      
       // Before serialization print out the RDD and its references.
       if(debugSerialization)
       {

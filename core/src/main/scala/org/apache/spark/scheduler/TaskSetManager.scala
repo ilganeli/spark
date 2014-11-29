@@ -437,13 +437,16 @@ private[spark] class TaskSetManager(
           // we assume the task can be serialized without exceptions.
 
           // Check if serialization debugging is enabled
-          // TODO After acceptance documentation for this option should be added to ScalaDoc
+          // TODO After acceptance, documentation for this option should be added to ScalaDoc
           val printRdd : Boolean = sched.sc.getConf.getOption("spark.serializer.debug")
             .getOrElse("false").equals("true")
           
+          // If enabled, print out the added JARs and files (as part of the context) to help 
+          // identify unserializable components
           if(printRdd)
           {
-            logDebug(SerializationHelper.taskDebugString(task, sched.sc.addedFiles, sched.sc.addedJars))
+            logDebug(SerializationHelper.taskDebugString(task, sched.sc.addedFiles, 
+              sched.sc.addedJars))
           }
 
           val serializedTask = Task.serializeWithDependencies(

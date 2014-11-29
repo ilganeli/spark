@@ -29,15 +29,47 @@ import scala.util.control.NonFatal
 
 /**
  * This class is designed to encapsulate some utilities to facilitate debugging serialization 
- * problems
+ * problems in the DAGScheduler and the TaskSetManager. See FOURFOUR-3694.
  */
 object SerializationHelper {
-    var Failed= "Failed to serialize"
+    // Define vars to standardize debugging output 
+    var Failed = "Failed to serialize"
     var FailedDeps = "Failed to serialize dependencies"
     var Serialized = "Serialized"
+
+  /**
+   * Helper function to check whether an RDD is serializable.
+   *
+   * If any dependency of an RDD is un-serializable, a NotSerializableException will be thrown
+   * and the entire RDD will be deemed un-serializable if done with a single try-catch.
+   *
+   * Therefore, split the evaluation into two stages, in the first stage attempt to serialize 
+   * the rdd. If it fails, attempt to serialize its dependencies in the failure handler and see 
+   * if those also fail.
+   *
+   * This approach will show if any of the dependencies are un-serializable and will not 
+   * incorrectly identify the parent RDD as being serializable.
+   *
+   * @param closureSerializer - An instance of a serializer (single-threaded) that will be used
+   * @param rdd - Rdd to attempt to serialize
+   * @return - An output string qualifying success or failure.
+   */
+  def isSerializable(closureSerializer : SerializerInstance, rdd : RDD[_]) : String = {
+    try {
+      closureSerializer.serialize(rdd: AnyRef)
+      Serialized + ": " + rdd.toString
+    }
+    catch {
+      case e: NotSerializableException =>
+        handleFailure(closureSerializer, rdd)
+
+      case NonFatal(e) =>
+        handleFailure(closureSerializer, rdd)
+    }  
+  }
   
   /**
-   * Helper function to help seperate a unserialiable parent rdd from unserializable dependencies 
+   * Helper function to seperate an un-serialiable parent rdd from un-serializable dependencies 
    * @param closureSerializer - An instance of a serializer (single-threaded) that will be used
    * @param rdd - Rdd to attempt to serialize
    * @return - An output string qualifying success or failure.
