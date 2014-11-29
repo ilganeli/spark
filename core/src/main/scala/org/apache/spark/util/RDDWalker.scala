@@ -26,7 +26,7 @@ import scala.language.existentials
 /**
  * This class allows execution of a function on an RDD and all of its dependencies. This is 
  * accomplished by walking the object graph linking these RDDs. This is useful for debugging 
- * internal RDD references.
+ * internal RDD references. See SPARK-3694.
  */
 object RDDWalker {
   

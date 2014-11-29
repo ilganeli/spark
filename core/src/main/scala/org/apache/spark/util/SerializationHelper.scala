@@ -29,7 +29,7 @@ import scala.util.control.NonFatal
 
 /**
  * This class is designed to encapsulate some utilities to facilitate debugging serialization 
- * problems in the DAGScheduler and the TaskSetManager. See FOURFOUR-3694.
+ * problems in the DAGScheduler and the TaskSetManager. See SPARK-3694.
  */
 object SerializationHelper {
     // Define vars to standardize debugging output 
