@@ -794,13 +794,13 @@ class DAGScheduler(
   }
 
   /**
-   * Helper function to check whether an RDD is serializable. 
+   * Helper function to check whether an RDD is serializable.
    * 
    * Note: This function is defined seperately from the SerializationHelper.isSerializable()
    * since DAGScheduler.isSerialiazble() is passed as a parameter to the RDDWalker class's graph
-   * traversal, which would otherwise require knowledge of the closureSerializer 
+   * traversal, which would otherwise require knowledge of the closureSerializer
    * (which was undesirable).
-   * 
+   *
    * @param rdd - Rdd to attempt to serialize
    * @return - An output string qualifying success or failure.
    */
@@ -809,17 +809,15 @@ class DAGScheduler(
   }
 
   /**
-   * Use the RDDWalker class to execute a graph traversal of an RDD and its dependencies to help 
-   * identify which RDDs are not serializable. In short, attempt to serialize the RDD and catch 
+   * Use the RDDWalker class to execute a graph traversal of an RDD and its dependencies to help
+   * identify which RDDs are not serializable. In short, attempt to serialize the RDD and catch
    * any Exceptions thrown (this is the same mechanism used within submitMissingTasks() to deal with
-   * serialization failures). 
+   * serialization failures).
    * 
    * Note: This is defined here since it uses the isSerializale function which in turn uses 
-   * the closure serializer. Although the better place for the serializer would be in the 
+   * the closure serializer. Although the better place for the serializer would be in the
    * SerializationHelper, the Helper is not guaranteed to run in a single thread unlike the 
-   * DAGScheduler.  
-    
-   * 
+   * DAGScheduler.
    * @param rdd - The rdd for which to print the serialization trace to identify unserializable 
    *              components
    * @return - String - The serialization trace
