@@ -864,9 +864,6 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     expectMsgPF(){ case Terminated(child) => () }
     assert(scheduler.sc.dagScheduler === null)
   }
-<<<<<<< HEAD
-  
-=======
 
   test("accumulator not calculated for resubmitted result stage") {
     //just for register
@@ -880,7 +877,6 @@ class DAGSchedulerSuite extends TestKit(ActorSystem("DAGSchedulerSuite")) with F
     assertDataStructuresEmpty
   }
 
->>>>>>> upstream/master
   /**
    * Assert that the supplied TaskSet has exactly the given hosts as its preferred locations.
    * Note that this checks only the host and not the executor ID.
