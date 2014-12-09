@@ -563,7 +563,7 @@ class RDDSuite extends FunSuite with SharedSparkContext {
 
     val testCount = 10
     
-    val seed = 512312
+    val seed = System.currentTimeMillis()
     val rand = new Random(seed)
     
     for (i <- 1 to testCount){
@@ -589,15 +589,15 @@ class RDDSuite extends FunSuite with SharedSparkContext {
       val sampleSize3 = rand.nextInt(smallSize) + smallSize
       val samples3 = dataSmall.sampleByCount(withReplacement=false, sampleSize3, seed)
 
-      assert(samples3.count() === sampleSize3)
+      assert(samples3.count() === smallSize)
 
       // Values should still be distinct because the original array is still 1:smallCount
-      assert(samples3.distinct().count() === sampleSize3)
+      assert(samples3.distinct().count() === smallSize)
 
       // *********************************************************************
       // When sampling with replacement and sample the entire array for a large count
       // ensure that all elements are not distinct
-      val sampleSize4 = rand.nextInt(count)
+      val sampleSize4 = count + rand.nextInt(count)
       val samples4 = data.sampleByCount(withReplacement=true, sampleSize4, seed)
 
       assert(samples4.count() === sampleSize4)
