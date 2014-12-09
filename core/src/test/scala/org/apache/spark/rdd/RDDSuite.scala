@@ -26,10 +26,9 @@ import scala.reflect.ClassTag
 import org.scalatest.FunSuite
 
 import org.apache.spark._
-import org.apache.spark.util.Utils
-
 import org.apache.spark.api.java.{JavaRDD, JavaSparkContext}
 import org.apache.spark.rdd.RDDSuiteUtils._
+import org.apache.spark.util.Utils
 
 class RDDSuite extends FunSuite with SharedSparkContext {
 
@@ -39,8 +38,8 @@ class RDDSuite extends FunSuite with SharedSparkContext {
     assert(nums.toLocalIterator.toList === List(1, 2, 3, 4))
     val dups = sc.makeRDD(Array(1, 1, 2, 2, 3, 3, 4, 4), 2)
     assert(dups.distinct().count() === 4)
-    assert(dups.distinct.count === 4)  // Can distinct and count be called without parentheses?
-    assert(dups.distinct.collect === dups.distinct().collect)
+    assert(dups.distinct().count === 4)  // Can distinct and count be called without parentheses?
+    assert(dups.distinct().collect === dups.distinct().collect)
     assert(dups.distinct(2).collect === dups.distinct().collect)
     assert(nums.reduce(_ + _) === 10)
     assert(nums.fold(0)(_ + _) === 10)
@@ -675,9 +674,9 @@ class RDDSuite extends FunSuite with SharedSparkContext {
     for(seed <- 1 to 5) {
       val splits = data.randomSplit(Array(1.0, 2.0, 3.0), seed)
       assert(splits.size == 3, "wrong number of splits")
-      assert(splits.flatMap(_.collect).sorted.toList == data.collect.toList,
+      assert(splits.flatMap(_.collect()).sorted.toList == data.collect().toList,
         "incomplete or wrong split")
-      val s = splits.map(_.count)
+      val s = splits.map(_.count())
       assert(math.abs(s(0) - 100) < 50) // std =  9.13
       assert(math.abs(s(1) - 200) < 50) // std = 11.55
       assert(math.abs(s(2) - 300) < 50) // std = 12.25
@@ -820,8 +819,8 @@ class RDDSuite extends FunSuite with SharedSparkContext {
     val rdd3 = rdd2.map(_ + 1)
     val rdd4 = new UnionRDD(sc, List(rdd1, rdd2, rdd3))
     assert(rdd4.parent(0).isInstanceOf[ParallelCollectionRDD[_]])
-    assert(rdd4.parent(1).isInstanceOf[FilteredRDD[_]])
-    assert(rdd4.parent(2).isInstanceOf[MappedRDD[_, _]])
+    assert(rdd4.parent[Int](1) === rdd2)
+    assert(rdd4.parent[Int](2) === rdd3)
   }
 
   test("getNarrowAncestors") {
@@ -839,20 +838,18 @@ class RDDSuite extends FunSuite with SharedSparkContext {
     // Simple dependency tree with a single branch
     assert(ancestors1.size === 0)
     assert(ancestors2.size === 2)
-    assert(ancestors2.count(_.isInstanceOf[ParallelCollectionRDD[_]]) === 1)
-    assert(ancestors2.count(_.isInstanceOf[FilteredRDD[_]]) === 1)
+    assert(ancestors2.count(_ === rdd1) === 1)
+    assert(ancestors2.count(_.isInstanceOf[MapPartitionsRDD[_, _]]) === 1)
     assert(ancestors3.size === 5)
-    assert(ancestors3.count(_.isInstanceOf[ParallelCollectionRDD[_]]) === 1)
-    assert(ancestors3.count(_.isInstanceOf[FilteredRDD[_]]) === 2)
-    assert(ancestors3.count(_.isInstanceOf[MappedRDD[_, _]]) === 2)
+    assert(ancestors3.count(_.isInstanceOf[MapPartitionsRDD[_, _]]) === 4)
 
     // Any ancestors before the shuffle are not considered
     assert(ancestors4.size === 0)
     assert(ancestors4.count(_.isInstanceOf[ShuffledRDD[_, _, _]]) === 0)
     assert(ancestors5.size === 3)
     assert(ancestors5.count(_.isInstanceOf[ShuffledRDD[_, _, _]]) === 1)
-    assert(ancestors5.count(_.isInstanceOf[MapPartitionsRDD[_, _]]) === 0)
-    assert(ancestors5.count(_.isInstanceOf[MappedValuesRDD[_, _, _]]) === 2)
+    assert(ancestors5.count(_ === rdd3) === 0)
+    assert(ancestors5.count(_.isInstanceOf[MapPartitionsRDD[_, _]]) === 2)
   }
 
   test("getNarrowAncestors with multiple parents") {
@@ -873,16 +870,16 @@ class RDDSuite extends FunSuite with SharedSparkContext {
     // Simple dependency tree with multiple branches
     assert(ancestors6.size === 3)
     assert(ancestors6.count(_.isInstanceOf[ParallelCollectionRDD[_]]) === 2)
-    assert(ancestors6.count(_.isInstanceOf[MappedRDD[_, _]]) === 1)
+    assert(ancestors6.count(_ === rdd2) === 1)
     assert(ancestors7.size === 5)
     assert(ancestors7.count(_.isInstanceOf[ParallelCollectionRDD[_]]) === 3)
-    assert(ancestors7.count(_.isInstanceOf[MappedRDD[_, _]]) === 1)
-    assert(ancestors7.count(_.isInstanceOf[FilteredRDD[_]]) === 1)
+    assert(ancestors7.count(_ === rdd2) === 1)
+    assert(ancestors7.count(_ === rdd3) === 1)
 
     // Dependency tree with duplicate nodes (e.g. rdd1 should not be reported twice)
     assert(ancestors8.size === 7)
-    assert(ancestors8.count(_.isInstanceOf[MappedRDD[_, _]]) === 1)
-    assert(ancestors8.count(_.isInstanceOf[FilteredRDD[_]]) === 1)
+    assert(ancestors8.count(_ === rdd2) === 1)
+    assert(ancestors8.count(_ === rdd3) === 1)
     assert(ancestors8.count(_.isInstanceOf[UnionRDD[_]]) === 2)
     assert(ancestors8.count(_.isInstanceOf[ParallelCollectionRDD[_]]) === 3)
     assert(ancestors8.count(_ == rdd1) === 1)
@@ -892,7 +889,6 @@ class RDDSuite extends FunSuite with SharedSparkContext {
     // Any ancestors before the shuffle are not considered
     assert(ancestors9.size === 2)
     assert(ancestors9.count(_.isInstanceOf[CoGroupedRDD[_]]) === 1)
-    assert(ancestors9.count(_.isInstanceOf[MappedValuesRDD[_, _, _]]) === 1)
   }
 
   /**
@@ -926,12 +922,10 @@ class RDDSuite extends FunSuite with SharedSparkContext {
     val ancestors3 = rdd3.getNarrowAncestors
     val ancestors4 = rdd4.getNarrowAncestors
     assert(ancestors3.size === 4)
-    assert(ancestors3.count(_.isInstanceOf[MappedRDD[_, _]]) === 2)
-    assert(ancestors3.count(_.isInstanceOf[FilteredRDD[_]]) === 2)
+    assert(ancestors3.count(_.isInstanceOf[MapPartitionsRDD[_, _]]) === 4)
     assert(ancestors3.count(_ == rdd3) === 0)
     assert(ancestors4.size === 4)
-    assert(ancestors4.count(_.isInstanceOf[MappedRDD[_, _]]) === 2)
-    assert(ancestors4.count(_.isInstanceOf[FilteredRDD[_]]) === 1)
+    assert(ancestors4.count(_.isInstanceOf[MapPartitionsRDD[_, _]]) === 3)
     assert(ancestors4.count(_.isInstanceOf[CyclicalDependencyRDD[_]]) === 1)
     assert(ancestors4.count(_ == rdd3) === 1)
     assert(ancestors4.count(_ == rdd4) === 0)
@@ -939,8 +933,7 @@ class RDDSuite extends FunSuite with SharedSparkContext {
     // Cycles that do not involve the root
     val ancestors5 = rdd5.getNarrowAncestors
     assert(ancestors5.size === 6)
-    assert(ancestors5.count(_.isInstanceOf[MappedRDD[_, _]]) === 3)
-    assert(ancestors5.count(_.isInstanceOf[FilteredRDD[_]]) === 2)
+    assert(ancestors5.count(_.isInstanceOf[MapPartitionsRDD[_, _]]) === 5)
     assert(ancestors5.count(_.isInstanceOf[CyclicalDependencyRDD[_]]) === 1)
     assert(ancestors4.count(_ == rdd3) === 1)
 
@@ -948,8 +941,7 @@ class RDDSuite extends FunSuite with SharedSparkContext {
     val ancestors6 = rdd6.getNarrowAncestors
     assert(ancestors6.size === 12)
     assert(ancestors6.count(_.isInstanceOf[UnionRDD[_]]) === 2)
-    assert(ancestors6.count(_.isInstanceOf[MappedRDD[_, _]]) === 4)
-    assert(ancestors6.count(_.isInstanceOf[FilteredRDD[_]]) === 3)
+    assert(ancestors6.count(_.isInstanceOf[MapPartitionsRDD[_, _]]) === 7)
     assert(ancestors6.count(_.isInstanceOf[CyclicalDependencyRDD[_]]) === 3)
   }
 
