@@ -404,7 +404,7 @@ abstract class RDD[T: ClassTag](
     // number of samples with 99.99% succss rate
     val fraction = SamplingUtils.computeFractionForSampleSize(num, initialCount,
       withReplacement)
-
+    
     var samples = this.sample(withReplacement, fraction, rand.nextInt())
 
     // If the first sample didn't turn out large enough, keep trying to take samples;
@@ -418,7 +418,24 @@ abstract class RDD[T: ClassTag](
 
     samples
   }
-  
+
+  /**
+   * Return a fixed-size sampled subset of this RDD in an array
+   *
+   * @param withReplacement whether sampling is done with replacement
+   * @param num size of the returned sample
+   * @param seed seed for the random number generator
+   * @return sample of specified size in an array
+   */
+  def takeSample(withReplacement: Boolean,
+                 num: Int,
+                 seed: Long = Utils.random.nextLong): Array[T] = {
+
+    // To maintain functionality of the previous implementation, randomize the returned 
+    // RDD in place before returning
+    Utils.randomizeInPlace(sampleByCount(withReplacement, num, seed).collect(), new Random(seed))
+  }
+
   /**
    * Randomly splits this RDD with the provided weights.
    *
@@ -435,24 +452,7 @@ abstract class RDD[T: ClassTag](
         this, new BernoulliCellSampler[T](x(0), x(1)), true, seed)
     }.toArray
   }
-
-  /**
-   * Return a fixed-size sampled subset of this RDD in an array
-   *
-   * @param withReplacement whether sampling is done with replacement
-   * @param num size of the returned sample
-   * @param seed seed for the random number generator
-   * @return sample of specified size in an array
-   */
-  def takeSample(withReplacement: Boolean,
-      num: Int,
-      seed: Long = Utils.random.nextLong): Array[T] = {
-    
-    // To maintain functionality of the previous implementation, randomize the returned 
-    // RDD in place before returning
-    Utils.randomizeInPlace(sampleByCount(withReplacement, num, seed).collect(), new Random(seed))
-  }
-
+  
   /**
    * Return the union of this RDD and another one. Any identical elements will appear multiple
    * times (use `.distinct()` to eliminate them).

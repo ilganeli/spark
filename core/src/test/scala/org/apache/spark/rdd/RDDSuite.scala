@@ -564,7 +564,7 @@ class RDDSuite extends FunSuite with SharedSparkContext {
 
     val testCount = 10
     
-    val seed = System.currentTimeMillis()
+    val seed = 512312
     val rand = new Random(seed)
     
     for (i <- 1 to testCount){
