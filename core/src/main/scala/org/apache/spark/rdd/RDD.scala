@@ -410,10 +410,20 @@ abstract class RDD[T: ClassTag](
     // If the first sample didn't turn out large enough, keep trying to take samples;
     // this shouldn't happen often because we use a big multiplier for the initial size
     var numIters = 0
-    while (samples.count < num) {
+    var count = samples.count()
+    // At this point we are guaranteed to have at least "num" samples but we may have more than
+    // num samples since computeFractionForSample actually yields an upper bound.
+    // If we have too many samples, drop un-needed ones
+    
+    while (count < num) {
       logWarning(s"Needed to re-sample due to insufficient sample size. Repeat #$numIters")
       samples = this.sample(withReplacement, fraction, rand.nextInt())
       numIters += 1
+      count = samples.count()
+    }
+
+    if(count > num) {
+      samples =  this.zipWithIndex().filter(_._2 < num).map(_._1) 
     }
 
     samples
