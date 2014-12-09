@@ -72,7 +72,7 @@ private[nio] class ConnectionManager(
       completionHandler(scala.util.Failure(new IOException("Failed without being ACK'd")))
     }
 
-    def failure(e: Throwable) {
+    def failure(e: Throwable) {RD
       completionHandler(scala.util.Failure(e))
     }
   }
