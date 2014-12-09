@@ -423,7 +423,7 @@ abstract class RDD[T: ClassTag](
     }
 
     if(count > num) {
-      samples =  this.zipWithIndex().filter(_._2 < num).map(_._1) 
+      samples =  samples.zipWithIndex().filter(_._2 < num).map(_._1) 
     }
 
     samples
