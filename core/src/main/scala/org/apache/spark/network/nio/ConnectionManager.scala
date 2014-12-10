@@ -42,10 +42,10 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 private[nio] class ConnectionManager(
-    port: Int,
-    conf: SparkConf,
-    securityManager: SecurityManager,
-    name: String = "Connection manager")
+                                      port: Int,
+                                      conf: SparkConf,
+                                      securityManager: SecurityManager,
+                                      name: String = "Connection manager")
   extends Logging {
 
   /**
@@ -55,9 +55,9 @@ private[nio] class ConnectionManager(
    * @param completionHandler callback that's invoked when the send has completed or failed
    */
   class MessageStatus(
-      val message: Message,
-      val connectionManagerId: ConnectionManagerId,
-      completionHandler: Try[Message] => Unit) {
+                       val message: Message,
+                       val connectionManagerId: ConnectionManagerId,
+                       completionHandler: Try[Message] => Unit) {
 
     def success(ackMessage: Message) {
       if (ackMessage == null) {
@@ -83,9 +83,21 @@ private[nio] class ConnectionManager(
 
   private val ackTimeout = conf.getInt("spark.core.connection.ack.wait.timeout", 60)
 
+  // Get the thread counts from the Spark Configuration.
+  // 
+  // Even though the ThreadPoolExecutor constructor takes both a minimum and maximum value,
+  // we only query for the minimum value because we are using LinkedBlockingDeque.
+  // 
+  // The JavaDoc for ThreadPoolExecutor points out that when using a LinkedBlockingDeque (which is 
+  // an unbounded queue) no more than corePoolSize threads will ever be created, so only the "min"
+  // parameter is necessary.
+  private val handlerThreadCount = conf.getInt("spark.core.connection.handler.threads.min", 20)
+  private val ioThreadCount = conf.getInt("spark.core.connection.io.threads.min", 4)
+  private val connectThreadCount = conf.getInt("spark.core.connection.connect.threads.min", 1)
+
   private val handleMessageExecutor = new ThreadPoolExecutor(
-    conf.getInt("spark.core.connection.handler.threads.min", 20),
-    conf.getInt("spark.core.connection.handler.threads.max", 60),
+    handlerThreadCount,
+    handlerThreadCount,
     conf.getInt("spark.core.connection.handler.threads.keepalive", 60), TimeUnit.SECONDS,
     new LinkedBlockingDeque[Runnable](),
     Utils.namedThreadFactory("handle-message-executor")) {
@@ -100,8 +112,8 @@ private[nio] class ConnectionManager(
   }
 
   private val handleReadWriteExecutor = new ThreadPoolExecutor(
-    conf.getInt("spark.core.connection.io.threads.min", 4),
-    conf.getInt("spark.core.connection.io.threads.max", 32),
+    ioThreadCount,
+    ioThreadCount,
     conf.getInt("spark.core.connection.io.threads.keepalive", 60), TimeUnit.SECONDS,
     new LinkedBlockingDeque[Runnable](),
     Utils.namedThreadFactory("handle-read-write-executor")) {
@@ -118,8 +130,8 @@ private[nio] class ConnectionManager(
   // Use a different, yet smaller, thread pool - infrequently used with very short lived tasks :
   // which should be executed asap
   private val handleConnectExecutor = new ThreadPoolExecutor(
-    conf.getInt("spark.core.connection.connect.threads.min", 1),
-    conf.getInt("spark.core.connection.connect.threads.max", 8),
+    connectThreadCount,
+    connectThreadCount,
     conf.getInt("spark.core.connection.connect.threads.keepalive", 60), TimeUnit.SECONDS,
     new LinkedBlockingDeque[Runnable](),
     Utils.namedThreadFactory("handle-connect-executor")) {
@@ -361,7 +373,7 @@ private[nio] class ConnectionManager(
 
                   logTrace("Changed key for connection to [" +
                     connection.getRemoteConnectionManagerId()  + "] changed from [" +
-                      intToOpStr(lastOps) + "] to [" + intToOpStr(ops) + "]")
+                    intToOpStr(lastOps) + "] to [" + intToOpStr(ops) + "]")
                 }
               }
             } else {
@@ -409,7 +421,7 @@ private[nio] class ConnectionManager(
                 }
               }
             }
-            0
+              0
           }
 
         if (selectedKeysCount == 0) {
@@ -513,9 +525,9 @@ private[nio] class ConnectionManager(
           messageStatuses.synchronized {
             messageStatuses.values.filter(_.connectionManagerId == sendingConnectionManagerId)
               .foreach(status => {
-                logInfo("Notifying " + status)
-                status.failWithoutAck()
-              })
+              logInfo("Notifying " + status)
+              status.failWithoutAck()
+            })
 
             messageStatuses.retain((i, status) => {
               status.connectionManagerId != sendingConnectionManagerId
@@ -594,9 +606,9 @@ private[nio] class ConnectionManager(
   }
 
   private def handleClientAuthentication(
-      waitingConn: SendingConnection,
-      securityMsg: SecurityMessage,
-      connectionId : ConnectionId) {
+                                          waitingConn: SendingConnection,
+                                          securityMsg: SecurityMessage,
+                                          connectionId : ConnectionId) {
     if (waitingConn.isSaslComplete()) {
       logDebug("Client sasl completed for id: "  + waitingConn.connectionId)
       connectionsAwaitingSasl -= waitingConn.connectionId
@@ -630,9 +642,9 @@ private[nio] class ConnectionManager(
   }
 
   private def handleServerAuthentication(
-      connection: Connection,
-      securityMsg: SecurityMessage,
-      connectionId: ConnectionId) {
+                                          connection: Connection,
+                                          securityMsg: SecurityMessage,
+                                          connectionId: ConnectionId) {
     if (!connection.isSaslComplete()) {
       logDebug("saslContext not established")
       var replyToken : Array[Byte] = null
@@ -698,7 +710,7 @@ private[nio] class ConnectionManager(
         // We could handle this better and tell the client we need to do authentication
         // negotiation, but for now just ignore them.
         logError("message sent that is not security negotiation message on connection " +
-                 "not authenticated yet, ignoring it!!")
+          "not authenticated yet, ignoring it!!")
         return true
       }
     }
@@ -706,9 +718,9 @@ private[nio] class ConnectionManager(
   }
 
   private def handleMessage(
-      connectionManagerId: ConnectionManagerId,
-      message: Message,
-      connection: Connection) {
+                             connectionManagerId: ConnectionManagerId,
+                             message: Message,
+                             connection: Connection) {
     logDebug("Handling [" + message + "] from [" + connectionManagerId + "]")
     message match {
       case bufferMessage: BufferMessage => {
@@ -901,7 +913,7 @@ private[nio] class ConnectionManager(
    * @return a Future that either returns the acknowledgment message or captures an exception.
    */
   def sendMessageReliably(connectionManagerId: ConnectionManagerId, message: Message)
-      : Future[Message] = {
+  : Future[Message] = {
     val promise = Promise[Message]()
 
     // It's important that the TimerTask doesn't capture a reference to `message`, which can cause
@@ -1116,14 +1128,14 @@ private[spark] object ConnectionManager {
     val startTime = System.currentTimeMillis
     while(true) {
       (0 until count).map(i => {
-          val bufferMessage = Message.createBufferMessage(buffer.duplicate)
-          manager.sendMessageReliably(manager.id, bufferMessage)
-        }).foreach(f => {
-          f.onFailure {
-            case e => println("Failed due to " + e)
-          }
-          Await.ready(f, 1 second)
-        })
+        val bufferMessage = Message.createBufferMessage(buffer.duplicate)
+        manager.sendMessageReliably(manager.id, bufferMessage)
+      }).foreach(f => {
+        f.onFailure {
+          case e => println("Failed due to " + e)
+        }
+        Await.ready(f, 1 second)
+      })
       val finishTime = System.currentTimeMillis
       Thread.sleep(1000)
       val mb = size * count / 1024.0 / 1024.0
