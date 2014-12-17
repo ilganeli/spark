@@ -401,8 +401,8 @@ abstract class RDD[T: ClassTag](
    * @return
    */
   def sampleByCount(withReplacement: Boolean,
-             num: Int,
-             seed: Long = Utils.random.nextLong): RDD[T] = {
+                    num: Int,
+                    seed: Long = Utils.random.nextLong): RDD[T] = {
     val numStDev =  10.0
 
     if (num < 0) {
