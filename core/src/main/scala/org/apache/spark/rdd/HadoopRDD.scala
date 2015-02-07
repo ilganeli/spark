@@ -245,7 +245,6 @@ class HadoopRDD[K, V](
           case eof: EOFException =>
             finished = true
         }
-
         (key, value)
       }
 
