@@ -1394,12 +1394,11 @@ class SparkContext(config: SparkConf) extends Logging with ExecutorAllocationCli
   def stop() {
     // Use the stopping variable to ensure no contention for the stop scenario.
     // Still track the stopped variable for use elsewhere in the code.
-    
+      
     if (!stopped.compareAndSet(false, true)) {
       logInfo("SparkContext already stopped.")
       return
-    }
-    
+    } 
     postApplicationEnd()
     ui.foreach(_.stop())
     env.metricsSystem.report()
